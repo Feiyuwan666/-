@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>量化小助手</title>
+<style>
+  :root{
+    --bg:#0d1117; --card:#151a22; --line:#232b38;
+    --txt:#e6e9ef; --sub:#8b94a7;
+    --up:#ff5252; --down:#00c48c; --gold:#ffb020;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  body{
+    background:var(--bg); color:var(--txt); font-size:14px; line-height:1.55;
+    font-family:system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    max-width:520px; margin:0 auto; padding:12px 12px 48px;
+  }
+  #banner{
+    position:sticky; top:8px; z-index:99; display:none;
+    padding:12px 14px; border-radius:12px; margin-bottom:10px;
+    color:#fff; font-weight:600; font-size:14px;
+    background:linear-gradient(90deg, #9a3412, #c2410c);
+    box-shadow:0 6px 18px rgba(0,0,0,.45);
+  }
+  #banner.show{display:block;}
+  header{display:flex; justify-content:space-between; align-items:baseline; padding:4px 2px 14px;}
+  header h1{font-size:18px;}
+  #clock{font-size:12px; color:var(--sub);}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px;}
+  .card h2{font-size:13px; color:var(--sub); font-weight:600; margin-bottom:10px; letter-spacing:.5px;}
+  .row{display:flex; gap:8px; align-items:center;}
+  input{
+    background:#0b0f15; border:1px solid var(--line); color:var(--txt);
+    border-radius:10px; padding:10px; font-size:15px; width:100%; min-width:0; outline:none;
+  }
+  input:focus{border-color:#3b82f6;}
+  button{
+    background:#1d4ed8; color:#fff; border:none; border-radius:10px;
+    padding:10px 14px; font-size:14px; font-weight:600; white-space:nowrap;
+  }
+  button:active{opacity:.8;}
+  button.ghost{background:#222b3a;}
+  button.mini{padding:4px 10px; font-size:12px; background:#222b3a; margin-top:6px;}
+  .sub{color:var(--sub); font-size:12px;}
+  .up{color:var(--up);}
+  .down{color:var(--down);}
+  .big{font-size:18px;}
+  .sumv{font-size:30px; font-weight:700;}
+  .pos{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px dashed var(--line);}
+  .pos:last-child{border-bottom:none;}
+  .name{font-weight:600;}
+  .code{color:var(--sub); font-weight:400; font-size:12px; margin-left:4px;}
+  .right{text-align:right;}
+  .price{font-size:16px; font-weight:700;}
+  .tag{display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; margin-top:4px;}
+  .tag.green{background:rgba(0,196,140,.15); color:var(--down);}
+  .tag.gold{background:rgba(255,176,32,.15); color:var(--gold);}
+  .tag.red{background:rgba(255,82,82,.15); color:var(--up);}
+  .empty{color:var(--sub); text-align:center; padding:14px 0;}
+  #net{font-size:12px; color:var(--sub); margin-top:8px;}
+  .setline{display:flex; justify-content:space-between; align-items:center; gap:8px; padding:7px 0;}
+  .setline input{width:92px; text-align:center;}
+  .foot{color:var(--sub); font-size:11px; text-align:center; margin-top:4px;}
+  #toast{
+    position:fixed; left:50%; bottom:56px; transform:translateX(-50%) translateY(16px);
+    background:#334155; color:#fff; padding:9px 16px; border-radius:999px;
+    font-size:13px; opacity:0; pointer-events:none; transition:.25s;
+    z-index:200; max-width:92vw; white-space:nowrap;
+  }
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<div id="banner"></div>
+
+<header>
+  <h1>📈 量化小助手</h1>
+  <div id="clock">--</div>
+</header>
+
+<div class="card">
+  <h2>总盈亏（浮动）</h2>
+  <div class="row" style="justify-content:space-between;">
+    <div>
+      <div id="sumProfit" class="sumv">0.00</div>
+      <div id="sumInfo" class="sub">持仓 0 只</div>
+    </div>
+    <div style="text-align:right; flex:none;">
+      <button onclick="refresh()">🔄 立即刷新</button>
+      <div id="net">—</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>持仓监控</h2>
+  <div id="list"><div class="empty">还没有持仓，下面添加一只试试 🚀</div></div>
+</div>
+
+<div class="card">
+  <h2>➕ 添加持仓</h2>
+  <div class="row" style="margin-bottom:8px;">
+    <input id="fCode" inputmode="numeric" placeholder="股票代码，如 600653">
+    <input id="fPrice" inputmode="decimal" placeholder="买入价">
+  </div>
+  <div class="row">
+    <input id="fShares" inputmode="numeric" placeholder="数量（默认100股）">
+    <button onclick="addPos()">查询并添加</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>🔍 快捷查价</h2>
+  <div class="row" style="margin-bottom:8px;">
+    <input id="qCode" inputmode="numeric" placeholder="输入代码，如 600653">
+    <button class="ghost" onclick="quickQuery()">查询</button>
+  </div>
+  <div id="qResult" class="sub">——</div>
+</div>
+
+<div class="card">
+  <h2>⚙️ 监控设置</h2>
+  <div class="setline"><span>达标盈利（元）</span><input id="sTarget" inputmode="decimal" onchange="saveSet()"></div>
+  <div class="setline"><span>止损线（%）</span><input id="sStop" inputmode="decimal" onchange="saveSet()"></div>
+  <div class="setline"><span>刷新间隔（秒）</span><input id="sInterval" inputmode="numeric" onchange="saveSet()"></div>
+  <div class="setline"><span>交易时段自动刷新</span><input id="sAuto" type="checkbox" style="width:auto; transform:scale(1.3);" onchange="saveSet()"></div>
+  <div class="sub" style="margin:12px 0 6px;">Server酱 SendKey（微信推送用，只存本机）</div>
+  <div class="row">
+    <input id="sKey" type="password" placeholder="SCT 开头，点右边👁可查看" onchange="saveSet()">
+    <button class="ghost" onclick="toggleKey()" style="flex:none;">👁</button>
+  </div>
+  <button onclick="testPush()" style="width:100%; margin-top:10px;">📨 测试微信推送</button>
+
+  <div class="sub" style="margin:14px 0 6px;">GitHub Token（可选，用来把持仓同步到云端定时盯盘，只存本机）</div>
+  <div class="row">
+    <input id="sGh" type="password" placeholder="github_pat_… 只需要 Contents 读写" onchange="saveSet()">
+    <button class="ghost" onclick="toggleGh()" style="flex:none;">👁</button>
+  </div>
+  <button class="ghost" onclick="syncCloud()" style="width:100%; margin-top:10px;">☁️ 同步持仓到云端</button>
+  <div id="cloudInfo" class="sub" style="margin-top:8px;">云端盯盘：未配置</div>
+</div>
+
+<div class="foot">
+  模拟盘盯盘工具 · 只做提醒，买卖手动操作<br>
+  ⚠️ 安卓限制：行情刷新与微信推送只在 App 处于前台时生效（锁屏 / 切到后台会暂停），盯盘时把 App 开着即可
+</div>
+
+<script>
+/* ================= 基础 ================= */
+var $ = function(id){ return document.getElementById(id); };
+function load(k, dv){
+  try{ var v = JSON.parse(localStorage.getItem(k)); return v == null ? dv : v; }
+  catch(e){ return dv; }
+}
+var positions = load('qh_positions', []);
+var settings = Object.assign({ target:15, stop:8, interval:30, auto:true, sendkey:'', ghtoken:'' }, load('qh_settings', {}));
+var lastRefresh = 0;
+var lastTest = 0;
+
+function save(){
+  localStorage.setItem('qh_positions', JSON.stringify(positions));
+  localStorage.setItem('qh_settings', JSON.stringify(settings));
+}
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+function pad(n){ return n < 10 ? '0' + n : '' + n; }
+function nowStr(){
+  var d = new Date();
+  return pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+function toast(msg){
+  var t = $('toast');
+  if(!t){ t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.className = 'show';
+  clearTimeout(t._t);
+  t._t = setTimeout(function(){ t.className = ''; }, 2500);
+}
+
+/* ================= 行情接口（腾讯财经） ================= */
+function normCode(input){
+  var c = String(input || '').trim().toLowerCase().replace(/[^0-9a-z]/g, '');
+  if(!c){ return ''; }
+  if(/^(sh|sz|bj)\d{6}$/.test(c)){ return c; }
+  if(!/^\d{6}$/.test(c)){ return c; }
+  if(/^[695]/.test(c)){ return 'sh' + c; }   // 沪市：6 股票 / 5 基金 / 9 B股
+  if(/^[0123]/.test(c)){ return 'sz' + c; }  // 深市：0 股票 / 1 基金 / 2 B股 / 3 创业板
+  return 'bj' + c;                           // 北交所：4 / 8
+}
+
+/* 解析腾讯行情返回的 v_sh600000="1~名称~代码~现价~昨收~..." 文本 */
+function parseQuoteText(text, codes){
+  var out = {};
+  codes.forEach(function(c){
+    var m = String(text || '').match(new RegExp('v_' + c + '="([^"]*)"'));
+    if(!m){ return; }
+    var f = String(m[1]).split('~');
+    if(f.length > 32 && parseFloat(f[3]) > 0){
+      var name = String(f[1] || '').trim();
+      if(!name || name.indexOf('\uFFFD') >= 0){ name = c.toUpperCase(); }  // 原生 HTTP 走 UTF-8，中文可能乱码，退回代码
+      out[c] = {
+        name: name,
+        price: parseFloat(f[3]),
+        preClose: parseFloat(f[4]) || 0,
+        pct: parseFloat(f[32]) || 0
+      };
+    }
+  });
+  return out;
+}
+
+/* 备用通道：Capacitor 原生 HTTP（App 内可用，绕开 WebView 的脚本加载限制） */
+function queryStocksHttp(codes, cb){
+  var cap = window.Capacitor;
+  if(!(cap && cap.Plugins && cap.Plugins.CapacitorHttp)){ cb({}); return; }
+  cap.Plugins.CapacitorHttp.get({
+    url: 'https://qt.gtimg.cn/q=' + codes.join(','),
+    headers: { 'Referer': 'https://gu.qq.com/' },
+    responseType: 'text'
+  }).then(function(res){
+    cb(parseQuoteText(res && res.data, codes));
+  }).catch(function(){
+    cb({});
+  });
+}
+
+function queryStocks(codes, cb){
+  if(!codes.length){ cb({}); return; }
+  var s = document.createElement('script');
+  s.charset = 'gbk';
+  s.src = 'https://qt.gtimg.cn/q=' + codes.join(',');
+  var done = false;
+  function finish(ok){
+    if(done){ return; }
+    done = true;
+    var out = {};
+    if(ok){
+      var text = codes.map(function(c){
+        var raw = window['v_' + c];
+        try{ delete window['v_' + c]; }catch(e){ window['v_' + c] = undefined; }
+        return (typeof raw === 'string') ? ('v_' + c + '="' + raw + '"') : '';
+      }).join(';');
+      out = parseQuoteText(text, codes);
+    }
+    try{ s.remove(); }catch(e){}
+    if(ok && Object.keys(out).length){ cb(out); }
+    else { queryStocksHttp(codes, cb); }   // 脚本方式拿不到 → 退到原生 HTTP
+  }
+  s.onload = function(){ finish(true); };
+  s.onerror = function(){ finish(false); };
+  setTimeout(function(){ finish(false); }, 8000);
+  document.head.appendChild(s);
+}
+
+/* ================= 微信推送（Server酱） ================= */
+function pushServerChan(title, desp, cb){
+  var key = String(settings.sendkey || '').trim();
+  if(!key){
+    if(cb){ cb(false, '还没有填 SendKey，去设置里填上再试'); }
+    return;
+  }
+  var params = 'title=' + encodeURIComponent(title) + '&desp=' + encodeURIComponent(desp || '');
+  var url = 'https://sctapi.ftqq.com/' + encodeURIComponent(key) + '.send?' + params;
+  function done(ok, info){ if(cb){ cb(ok, info); } }
+
+  var cap = window.Capacitor;
+  if(cap && cap.Plugins && cap.Plugins.CapacitorHttp){
+    cap.Plugins.CapacitorHttp.post({
+      url: url,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      data: params
+    }).then(function(res){
+      var ok = false;
+      try{
+        var body = (typeof res.data === 'string') ? JSON.parse(res.data) : res.data;
+        ok = !!(body && (body.code === 0 || body.data));
+      }catch(e){ ok = (res.status === 200); }
+      done(ok, ok ? '推送成功' : ('服务端返回异常（' + res.status + '）'));
+    }).catch(function(){
+      done(false, '请求失败（网络或配置问题）');
+    });
+    return;
+  }
+
+  /* 电脑浏览器预览模式：尽力发出，可能无法读取结果 */
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: params
+  }).then(function(r){
+    done(r.ok, r.ok ? '推送成功' : ('服务端返回 ' + r.status));
+  }).catch(function(){
+    done(false, '预览模式无法确认结果，去微信看看收到没');
+  });
+}
+
+function toggleKey(){
+  var k = $('sKey');
+  k.type = (k.type === 'password') ? 'text' : 'password';
+}
+function toggleGh(){
+  var k = $('sGh');
+  k.type = (k.type === 'password') ? 'text' : 'password';
+}
+
+/* ================= 云端同步（GitHub 仓库里的 data/positions.json） ================= */
+var CLOUD = { owner: 'Feiyuwan666', repo: '-', path: 'data/positions.json', state: 'data/state.json' };
+
+function b64utf8(str){
+  return btoa(unescape(encodeURIComponent(str)));
+}
+function unb64utf8(b64){
+  return decodeURIComponent(escape(atob(String(b64 || '').replace(/\s/g, ''))));
+}
+function ghHeaders(tok){
+  return {
+    'Authorization': 'Bearer ' + tok,
+    'Accept': 'application/vnd.github+json',
+    'Content-Type': 'application/json'
+  };
+}
+/* 统一走 Capacitor 原生 HTTP（不受 WebView 跨域限制），电脑浏览器预览时退回 fetch */
+function httpReq(method, url, headers, data){
+  var cap = window.Capacitor;
+  if(cap && cap.Plugins && cap.Plugins.CapacitorHttp){
+    return cap.Plugins.CapacitorHttp.request({
+      method: method, url: url, headers: headers || {}, data: data
+    });
+  }
+  return fetch(url, {
+    method: method,
+    headers: headers || {},
+    body: data ? JSON.stringify(data) : undefined
+  }).then(function(r){
+    return r.json().then(function(j){ return { status: r.status, data: j }; });
+  });
+}
+function cloudApi(sub){
+  return 'https://api.github.com/repos/' + CLOUD.owner + '/' + encodeURIComponent(CLOUD.repo)
+       + '/contents/' + sub;
+}
+
+function syncCloud(){
+  var tok = String(settings.ghtoken || '').trim();
+  if(!tok){ toast('先在设置里填 GitHub Token（只需要 Contents 读写）'); return; }
+  var payload = JSON.stringify({
+    updated_at: nowStr(),
+    settings: { target: settings.target, stop: settings.stop },
+    positions: positions.map(function(p){
+      return {
+        code: p.code, name: p.name || '',
+        buyPrice: p.buyPrice, shares: p.shares,
+        status: p.status || 'holding'
+      };
+    })
+  }, null, 2);
+  toast('正在同步到云端…');
+  var sha = null;
+  httpReq('GET', cloudApi(CLOUD.path), ghHeaders(tok)).then(function(res){
+    if(res && res.status === 200 && res.data && res.data.sha){ sha = res.data.sha; }
+    var body = { message: 'chore: 同步持仓 ' + nowStr(), content: b64utf8(payload) };
+    if(sha){ body.sha = sha; }
+    return httpReq('PUT', cloudApi(CLOUD.path), ghHeaders(tok), body);
+  }).then(function(res){
+    var st = res && res.status;
+    if(st === 200 || st === 201){
+      toast('✅ 已同步 ' + positions.length + ' 只持仓，云端盯盘生效');
+      loadCloudInfo();
+    }else{
+      toast('❌ 同步失败（HTTP ' + st + '），检查 token 的 Contents 权限');
+    }
+  }).catch(function(){
+    toast('❌ 同步请求失败，检查网络或 token');
+  });
+}
+
+function loadCloudInfo(){
+  var box = $('cloudInfo');
+  var tok = String(settings.ghtoken || '').trim();
+  if(!tok){ box.textContent = '云端盯盘：未配置（填 Token 后可同步）'; return; }
+  box.textContent = '云端盯盘：读取中…';
+  httpReq('GET', cloudApi(CLOUD.state), ghHeaders(tok)).then(function(res){
+    if(!res || res.status !== 200 || !res.data || !res.data.content){
+      box.textContent = '云端盯盘：尚未运行过';
+      return;
+    }
+    var st = {};
+    try{ st = JSON.parse(unb64utf8(res.data.content)); }catch(e){}
+    var n = (st.alerts && Object.keys(st.alerts).length) || 0;
+    box.textContent = '云端盯盘：上次检查 ' + (st.checked_at || '--')
+      + ' · ' + (st.summary || ('' + n + ' 条信号'));
+  }).catch(function(){
+    box.textContent = '云端盯盘：读取失败';
+  });
+}
+
+function testPush(){
+  if(Date.now() - lastTest < 10000){ toast('别急，10 秒后再试一下'); return; }
+  var key = String(settings.sendkey || '').trim();
+  if(!key){ alert('先在下面填好 SendKey（SCT 开头），再测试推送'); return; }
+  lastTest = Date.now();
+  toast('正在发送测试推送…');
+  pushServerChan(
+    '量化小助手 · 测试推送',
+    '如果你在微信里看到这条消息，说明推送通道已打通 ✅\n\n时间：' + nowStr() + '\n（来自手机 App「量化小助手」）',
+    function(ok, info){
+      toast(ok ? '✅ 发送成功，去微信查收！' : '❌ ' + (info || '发送失败'));
+    }
+  );
+}
+
+/* ================= 提醒 / 状态 ================= */
+function notify(msg){
+  var b = $('banner');
+  b.textContent = msg;
+  b.classList.add('show');
+  clearTimeout(b._t);
+  b._t = setTimeout(function(){ b.classList.remove('show'); }, 12000);
+  try{ if(navigator.vibrate){ navigator.vibrate([150, 80, 150]); } }catch(e){}
+}
+function setNet(t){ $('net').textContent = t; }
+function marketOpen(){
+  var d = new Date(), day = d.getDay();
+  if(day === 0 || day === 6){ return false; }
+  var t = d.getHours() * 60 + d.getMinutes();
+  return (t >= 555 && t <= 695) || (t >= 775 && t <= 910);
+}
+
+/* ================= 刷新与监控 ================= */
+function refresh(silent){
+  if(!positions.length){ if(!silent){ toast('先添加持仓再刷新哦'); } return; }
+  setNet('刷新中…');
+  var codes = positions.map(function(p){ return p.code; });
+  codes = codes.filter(function(c, i){ return codes.indexOf(c) === i; });
+  queryStocks(codes, function(data){
+    var got = Object.keys(data).length;
+    if(!got){
+      setNet('❌ 获取失败，检查网络');
+      if(!silent){ toast('没拿到行情数据，检查一下网络'); }
+      return;
+    }
+    positions.forEach(function(p){
+      var q = data[p.code];
+      if(!q){ return; }
+      p.price = q.price;
+      p.pct = q.pct;
+      p.profit = (q.price - p.buyPrice) * p.shares;
+      p.profitPct = p.buyPrice > 0 ? (q.price - p.buyPrice) / p.buyPrice * 100 : 0;
+      if(p.status === 'holding'){
+        if(p.profit >= settings.target){
+          p.status = 'target';
+          notify('🎯 达标！' + p.name + ' 盈利 +' + p.profit.toFixed(2) + ' 元（目标 +' + settings.target + ' 元），可以考虑卖出');
+          pushServerChan(
+            '🎯 达标信号：' + p.name + '（' + p.code.toUpperCase() + '）',
+            '现价：' + q.price + ' 元\n买入价：' + p.buyPrice + ' 元\n数量：' + p.shares + ' 股\n盈利：+' + p.profit.toFixed(2) + ' 元（+' + p.profitPct.toFixed(2) + '%）\n时间：' + nowStr() + '\n\n已到目标盈利 +' + settings.target + ' 元，可以考虑卖出～'
+          );
+        }else if(p.profitPct <= -settings.stop){
+          p.status = 'stopped';
+          notify('🛑 止损提醒！' + p.name + ' 亏损 ' + p.profitPct.toFixed(2) + '%（超过 -' + settings.stop + '%），注意风险');
+          pushServerChan(
+            '🛑 止损信号：' + p.name + '（' + p.code.toUpperCase() + '）',
+            '现价：' + q.price + ' 元\n买入价：' + p.buyPrice + ' 元\n数量：' + p.shares + ' 股\n亏损：' + p.profit.toFixed(2) + ' 元（' + p.profitPct.toFixed(2) + '%）\n时间：' + nowStr() + '\n\n已触发止损线 -' + settings.stop + '%，注意控制风险'
+          );
+        }
+      }
+    });
+    lastRefresh = Date.now();
+    save();
+    render();
+    var d = new Date(lastRefresh);
+    setNet('✅ 已刷新 ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()) + ' · ' + got + ' 只');
+  });
+}
+
+/* ================= 渲染 ================= */
+function render(){
+  var total = positions.reduce(function(s, p){ return s + (p.profit || 0); }, 0);
+  var nT = positions.filter(function(p){ return p.status === 'target'; }).length;
+  var nS = positions.filter(function(p){ return p.status === 'stopped'; }).length;
+  var sp = $('sumProfit');
+  sp.textContent = (total >= 0 ? '+' : '') + total.toFixed(2);
+  sp.className = 'sumv ' + (total >= 0 ? 'up' : 'down');
+  $('sumInfo').textContent = '持仓 ' + positions.length + ' 只 · ✅ ' + nT + ' · 🛑 ' + nS;
+
+  var box = $('list');
+  if(!positions.length){
+    box.innerHTML = '<div class="empty">还没有持仓，下面添加一只试试 🚀</div>';
+    return;
+  }
+  box.innerHTML = positions.map(function(p, i){
+    var tag = p.status === 'target' ? '<span class="tag gold">✅ 已达标</span>'
+            : p.status === 'stopped' ? '<span class="tag red">🛑 已止损</span>'
+            : '<span class="tag green">⏳ 持有中</span>';
+    var pf = (p.profit == null) ? '--' : ((p.profit >= 0 ? '+' : '') + p.profit.toFixed(2));
+    var pp = (p.profitPct == null) ? '' : ('（' + (p.profitPct >= 0 ? '+' : '') + p.profitPct.toFixed(2) + '%）');
+    var cls = (p.profit || 0) >= 0 ? 'up' : 'down';
+    var resetBtn = p.status !== 'holding' ? '<button class="mini" onclick="resetPos(' + i + ')">重置</button>' : '';
+    return '<div class="pos">'
+      + '<div>'
+      +   '<div class="name">' + esc(p.name) + '<span class="code">' + p.code.toUpperCase() + '</span></div>'
+      +   '<div class="sub">买入 ' + p.buyPrice + ' 元 × ' + p.shares + ' 股</div>'
+      +   '<div>' + tag + resetBtn + '</div>'
+      + '</div>'
+      + '<div class="right">'
+      +   '<div class="price">' + (p.price != null ? p.price : '--') + '</div>'
+      +   '<div class="' + cls + '">' + pf + ' 元 ' + pp + '</div>'
+      +   '<button class="mini" onclick="delPos(' + i + ')">删除</button>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+/* ================= 持仓操作 ================= */
+function addPos(){
+  var code = normCode($('fCode').value);
+  var bp = parseFloat($('fPrice').value);
+  var sh = parseInt($('fShares').value, 10) || 100;
+  if(!code || !(bp > 0)){ toast('代码和买入价都填一下吧'); return; }
+  var dup = positions.some(function(p){ return p.code === code; });
+  if(dup){ toast('这只已经在监控列表里啦'); return; }
+  setNet('查询 ' + code + ' …');
+  queryStocks([code], function(data){
+    var q = data[code];
+    if(!q){ setNet('❌ 没查到'); toast('没查到 ' + code + '，检查下代码？'); return; }
+    positions.push({
+      code: code, name: q.name, buyPrice: bp, shares: sh,
+      price: q.price, pct: q.pct,
+      profit: (q.price - bp) * sh,
+      profitPct: bp > 0 ? (q.price - bp) / bp * 100 : 0,
+      status: 'holding'
+    });
+    save(); render();
+    $('fCode').value = ''; $('fPrice').value = ''; $('fShares').value = '';
+    toast('已添加：' + q.name + '（现价 ' + q.price + ' 元）');
+    setNet('✅ 已添加 ' + q.name);
+  });
+}
+function delPos(i){
+  var p = positions[i];
+  if(!p){ return; }
+  if(confirm('删除「' + p.name + '」的监控？')){
+    positions.splice(i, 1);
+    save(); render();
+  }
+}
+function resetPos(i){
+  var p = positions[i];
+  if(!p){ return; }
+  p.status = 'holding';
+  save(); render();
+  refresh(true);
+  toast('已重置为「持有中」，达标 / 止损会重新判定');
+}
+
+/* ================= 查价 ================= */
+function quickQuery(){
+  var code = normCode($('qCode').value);
+  if(!code){ toast('先输入股票代码'); return; }
+  $('qResult').textContent = '查询中…';
+  queryStocks([code], function(data){
+    var q = data[code];
+    if(!q){ $('qResult').innerHTML = '❌ 没查到，检查代码或网络'; return; }
+    var cls = q.pct >= 0 ? 'up' : 'down';
+    $('qResult').innerHTML = esc(q.name) + '（' + code.toUpperCase() + '）现价 <b class="big">'
+      + q.price + '</b> 元 <span class="' + cls + '">' + (q.pct >= 0 ? '+' : '') + q.pct.toFixed(2) + '%</span>';
+  });
+}
+
+/* ================= 设置 ================= */
+function loadSet(){
+  $('sTarget').value = settings.target;
+  $('sStop').value = settings.stop;
+  $('sInterval').value = settings.interval;
+  $('sAuto').checked = !!settings.auto;
+  $('sKey').value = settings.sendkey || '';
+  $('sGh').value = settings.ghtoken || '';
+}
+function saveSet(){
+  var t = parseFloat($('sTarget').value);
+  var s = parseFloat($('sStop').value);
+  var iv = parseInt($('sInterval').value, 10);
+  if(t > 0){ settings.target = t; }
+  if(s > 0){ settings.stop = Math.abs(s); }
+  if(iv >= 10){ settings.interval = iv; }
+  settings.auto = !!$('sAuto').checked;
+  settings.sendkey = String($('sKey').value || '').trim();
+  settings.ghtoken = String($('sGh').value || '').trim();
+  save(); loadSet();
+  toast('设置已保存');
+}
+
+/* ================= 启动 ================= */
+function clock(){
+  var d = new Date();
+  $('clock').textContent = pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' '
+    + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds())
+    + (marketOpen() ? ' · 交易中' : ' · 休市');
+}
+setInterval(clock, 1000);
+
+setInterval(function(){
+  if(!settings.auto || !positions.length){ return; }
+  if(!marketOpen()){ return; }
+  var gap = (settings.interval || 30) * 1000;
+  if(Date.now() - lastRefresh >= gap){ refresh(true); }
+}, 5000);
+
+loadSet();
+render();
+clock();
+loadCloudInfo();
+setTimeout(function(){ refresh(true); }, 800);
+</script>
+</body>
+</html>
