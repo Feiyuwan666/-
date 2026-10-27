@@ -37,12 +37,28 @@ jobs:
 
       - name: 替换应用图标
         run: |
+          set -e
+          RES=android/app/src/main/res
           for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             if [ -d "resources/mipmap-$d" ]; then
-              cp -f resources/mipmap-$d/*.png android/app/src/main/res/mipmap-$d/ || true
+              cp -f resources/mipmap-$d/*.png "$RES/mipmap-$d/"
             fi
           done
-          echo "图标已替换"
+          mkdir -p "$RES/mipmap-anydpi-v26"
+          for f in ic_launcher ic_launcher_round; do
+            printf '%s\n' \
+              '<?xml version="1.0" encoding="utf-8"?>' \
+              '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">' \
+              '    <background android:drawable="@color/ic_launcher_background" />' \
+              '    <foreground android:drawable="@mipmap/ic_launcher_foreground" />' \
+              '</adaptive-icon>' > "$RES/mipmap-anydpi-v26/$f.xml"
+          done
+          printf '%s\n' \
+            '<?xml version="1.0" encoding="utf-8"?>' \
+            '<resources>' \
+            '    <color name="ic_launcher_background">#0D1117</color>' \
+            '</resources>' > "$RES/values/ic_launcher_background.xml"
+          echo "图标与自适应图标配置已替换"
 
       - name: 补充震动权限
         run: |
