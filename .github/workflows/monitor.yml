@@ -1,0 +1,51 @@
+name: 云端盯盘
+
+on:
+  schedule:
+    # UTC 1-7 点 = 北京时间 9:00-15:59，工作日每 5 分钟一次
+    - cron: '*/5 1-7 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '忽略交易时段限制，立即检查一次'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 检查持仓并推送微信
+        id: check
+        env:
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+        run: python3 scripts/monitor.py
+
+      - name: 提交盯盘状态
+        if: steps.check.outputs.commit == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/state.json
+          if git diff --cached --quiet; then
+            echo "状态无变化，跳过提交"
+            exit 0
+          fi
+          git commit -m "chore: 更新盯盘状态 [skip ci]"
+          git push
