@@ -1,0 +1,106 @@
+name: 构建 APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 安装 Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: 安装 npm 依赖
+        run: npm install --no-audit --no-fund
+
+      - name: 生成安卓工程并同步网页代码
+        run: |
+          npx --yes cap add android || echo "android 目录已存在，跳过 add"
+          npx --yes cap sync android
+          ls -l android/app/src/main/assets/public/
+
+      - name: 替换应用图标
+        run: |
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            if [ -d "resources/mipmap-$d" ]; then
+              cp -f resources/mipmap-$d/*.png android/app/src/main/res/mipmap-$d/ || true
+            fi
+          done
+          echo "图标已替换"
+
+      - name: 补充震动权限
+        run: |
+          python3 - <<'PY'
+          p = 'android/app/src/main/AndroidManifest.xml'
+          s = open(p, encoding='utf-8').read()
+          if 'android.permission.VIBRATE' not in s:
+              s = s.replace('<application', '<uses-permission android:name="android.permission.VIBRATE" />\n    <application', 1)
+              open(p, 'w', encoding='utf-8').write(s)
+              print('已写入 VIBRATE 权限')
+          else:
+              print('VIBRATE 权限已存在')
+          PY
+
+      - name: 编译 Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: 整理产物
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/lianghua.apk
+          ls -lh out
+
+      - name: 用固定密钥重新签名（配置了 Secrets 才执行）
+        env:
+          KS_B64: ${{ secrets.KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.KEYSTORE_PASS }}
+        run: |
+          if [ -z "$KS_B64" ]; then
+            echo "⚠️ 未配置 KEYSTORE_B64 / KEYSTORE_PASS，保留 debug 签名（每次构建签名不同，覆盖安装可能失败）"
+            exit 0
+          fi
+          set -e
+          echo "$KS_B64" | base64 -d > /tmp/app.jks
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "使用 build-tools: $BT"
+          "$BT/apksigner" sign --ks /tmp/app.jks --ks-key-alias lianghua \
+            --ks-pass env:KS_PASS --key-pass env:KS_PASS \
+            --out out/lianghua-signed.apk out/lianghua.apk
+          "$BT/apksigner" verify --print-certs out/lianghua-signed.apk | head -3
+          mv out/lianghua-signed.apk out/lianghua.apk
+          echo "✅ 已用固定证书重新签名"
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: lianghua-apk
+          path: out/lianghua.apk
+          retention-days: 30
+
+      - name: 发布到 Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view apk-latest >/dev/null 2>&1 || \
+            gh release create apk-latest --title "量化小助手 APK（最新版）" \
+              --notes "由 GitHub Actions 自动构建。下载 lianghua.apk 覆盖安装即可，持仓数据保留。" --latest
+          gh release upload apk-latest out/lianghua.apk --clobber
