@@ -1,8 +1,16 @@
 {
-  "updated_at": "",
+  "updated_at": "10-27 21:02",
   "settings": {
-    "target": 15,
-    "stop": 8
+    "target": 5,
+    "stop": 5
   },
-  "positions": []
+  "positions": [
+    {
+      "code": "sh600715",
+      "name": "文投控股",
+      "buyPrice": 1.721,
+      "shares": 200,
+      "status": "holding"
+    }
+  ]
 }
