@@ -1,0 +1,10 @@
+{
+  "appId": "com.feiyuwan.lianghua",
+  "appName": "量化小助手",
+  "webDir": "www",
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}
