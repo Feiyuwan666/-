@@ -1,8 +1,8 @@
 {
-  "updated_at": "11-02 13:04",
+  "updated_at": "11-02 14:38",
   "settings": {
     "target": 5,
-    "stop": 3
+    "stop": 2
   },
   "positions": [
     {
@@ -10,7 +10,7 @@
       "name": "津滨发展",
       "buyPrice": 1.89,
       "shares": 200,
-      "status": "holding"
+      "status": "stopped"
     }
   ]
 }
