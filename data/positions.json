@@ -1,8 +1,16 @@
 {
-  "updated_at": "11-03 09:39",
+  "updated_at": "11-04 13:42",
   "settings": {
-    "target": 5,
+    "target": 10,
     "stop": 2
   },
-  "positions": []
+  "positions": [
+    {
+      "code": "sh600221",
+      "name": "海航控股",
+      "buyPrice": 1.22,
+      "shares": 300,
+      "status": "holding"
+    }
+  ]
 }
