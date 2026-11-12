@@ -1,16 +1,8 @@
 {
-  "updated_at": "11-12 10:11",
+  "updated_at": "11-12 14:00",
   "settings": {
     "target": 10,
     "stop": 2
   },
-  "positions": [
-    {
-      "code": "sz000882",
-      "name": "华联股份",
-      "buyPrice": 1.41,
-      "shares": 300,
-      "status": "holding"
-    }
-  ]
+  "positions": []
 }
