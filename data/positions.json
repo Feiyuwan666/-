@@ -1,14 +1,14 @@
 {
-  "updated_at": "11-04 13:42",
+  "updated_at": "11-12 10:11",
   "settings": {
     "target": 10,
     "stop": 2
   },
   "positions": [
     {
-      "code": "sh600221",
-      "name": "海航控股",
-      "buyPrice": 1.22,
+      "code": "sz000882",
+      "name": "华联股份",
+      "buyPrice": 1.41,
       "shares": 300,
       "status": "holding"
     }
