@@ -1,6 +1,6 @@
 {
-  "checked_at": "2026-11-12 13:41",
-  "summary": "sz000882 达标",
+  "checked_at": "2026-11-16 14:02",
+  "summary": "无新信号（本次检查 1 只）",
   "alerts": {
     "sh600221": {
       "level": "stopped",
