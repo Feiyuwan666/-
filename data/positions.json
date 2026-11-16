@@ -1,8 +1,16 @@
 {
-  "updated_at": "11-12 14:00",
+  "updated_at": "11-16 10:10",
   "settings": {
     "target": 10,
     "stop": 2
   },
-  "positions": []
+  "positions": [
+    {
+      "code": "sh601860",
+      "name": "紫金银行",
+      "buyPrice": 2.54,
+      "shares": 200,
+      "status": "holding"
+    }
+  ]
 }
