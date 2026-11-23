@@ -1,8 +1,16 @@
 {
-  "updated_at": "11-19 14:47",
+  "updated_at": "11-23 10:13",
   "settings": {
     "target": 10,
     "stop": 1
   },
-  "positions": []
+  "positions": [
+    {
+      "code": "sz000897",
+      "name": "津滨发展",
+      "buyPrice": 1.73,
+      "shares": 300,
+      "status": "holding"
+    }
+  ]
 }
